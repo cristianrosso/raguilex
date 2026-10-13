@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+coverage/
+.vite/
+uploads/
+outputs/
+outputs/*/previews/
+backups/
+tmp/
+output/
+.vercel/
+.codex-remote-attachments/
+

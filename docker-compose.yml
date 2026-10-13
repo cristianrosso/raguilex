@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: raguilex-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: raguilex_inventory
+      POSTGRES_USER: raguilex
+      POSTGRES_PASSWORD: raguilex
+    ports:
+      - "5433:5432"
+    volumes:
+      - raguilex-postgres-data:/var/lib/postgresql/data
+
+volumes:
+  raguilex-postgres-data:

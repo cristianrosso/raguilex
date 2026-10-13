@@ -1,0 +1,25 @@
+{
+  "name": "raguilex-inventario",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm-run-all --parallel dev:api dev:web",
+    "dev:api": "npm --workspace @raguilex/api run dev",
+    "dev:web": "npm --workspace @raguilex/web run dev",
+    "build": "npm --workspace @raguilex/shared run build && npm --workspace @raguilex/api run build && npm --workspace @raguilex/web run build",
+    "test": "npm --workspace @raguilex/api run test",
+    "prisma:generate": "npm --workspace @raguilex/api run prisma:generate",
+    "prisma:migrate": "npm --workspace @raguilex/api run prisma:migrate",
+    "seed": "npm --workspace @raguilex/api run seed",
+    "import:analyze": "npm --workspace @raguilex/api run import:analyze"
+  },
+  "devDependencies": {
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.9.2"
+  }
+}
+

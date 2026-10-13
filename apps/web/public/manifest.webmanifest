@@ -1,0 +1,17 @@
+{
+  "name": "RAGUILEX Inventario",
+  "short_name": "RAGUILEX",
+  "description": "Inventario y ventas para RAGUILEX.",
+  "start_url": "/login",
+  "display": "standalone",
+  "background_color": "#f4f6f1",
+  "theme_color": "#17352d",
+  "icons": [
+    {
+      "src": "/raguilex-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
