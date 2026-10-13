@@ -330,8 +330,9 @@ function Login({ onSignIn }: { onSignIn: (token: string, user: UserSession) => v
       onSignIn(data.token, data.user);
       if (!remember) sessionStorage.setItem(TOKEN_KEY, data.token);
       navigate("/dashboard");
-    } catch {
-      setError("Usuario o contrasena incorrectos.");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "";
+      setError(message.includes("SIN CONEXION") || message.includes("404") ? "La API no esta disponible. Revisa el despliegue de Render y VITE_API_URL." : "Usuario o contrasena incorrectos.");
     } finally {
       setLoading(false);
     }
@@ -1410,7 +1411,7 @@ async function apiRequest<T>(path: string, options: RequestInit & { token?: stri
       localStorage.removeItem(USER_KEY);
       if (window.location.pathname !== "/login") window.location.href = "/login";
     }
-    throw new Error(payload?.message ?? "La solicitud no pudo completarse.");
+    throw new Error(payload?.message ?? `La solicitud no pudo completarse. Codigo ${response.status}.`);
   }
   return payload as T;
 }
