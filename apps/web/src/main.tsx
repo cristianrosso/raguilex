@@ -534,6 +534,7 @@ function ProductForm({ token, edit = false }: { token: string; edit?: boolean })
   const { data: existing } = useApi<Product>(edit ? `/products/${id}` : "/products/next-code", token);
   const { data: catalogs } = useApi<Catalogs>("/settings/catalogs", token);
   const [form, setForm] = useState({ brandName: "", model: "", size: "", color: "", categoryName: "Tenis/Calzado", conditionName: "Bueno", locationName: "Raguilex Principal", purchaseCost: "", salePrice: "", barcode: "", observations: "", status: "AVAILABLE" as InventoryStatus });
+  const [photo, setPhoto] = useState<File | null>(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -561,7 +562,17 @@ function ProductForm({ token, edit = false }: { token: string; edit?: boolean })
     setSaving(true);
     setError("");
     try {
-      await apiRequest<Product>(edit ? `/products/${id}` : "/products", { token, method: edit ? "PUT" : "POST", body: JSON.stringify(payloadFromForm(form)) });
+      const product = await apiRequest<Product>(edit ? `/products/${id}` : "/products", { token, method: edit ? "PUT" : "POST", body: JSON.stringify(payloadFromForm(form)) });
+      if (!edit && photo) {
+        const data = new FormData();
+        data.append("file", photo);
+        try {
+          await apiRequest(`/products/${product.id}/images`, { token, method: "POST", body: data });
+        } catch {
+          setError(`Producto ${product.internalCode} creado, pero no se pudo subir la foto. Entra a la ficha del producto para intentarlo otra vez.`);
+          return;
+        }
+      }
       navigate(edit ? `/products/${id}` : "/products");
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo guardar el producto.");
@@ -574,6 +585,13 @@ function ProductForm({ token, edit = false }: { token: string; edit?: boolean })
     <>
       <PageHeader title={edit ? "Editar producto" : "Nuevo producto"} eyebrow={edit ? "Ficha editable" : `Codigo automatico ${!edit && existing && "nextCodePreview" in existing ? existing.nextCodePreview : ""}`} />
       <form className="formSurface productForm" onSubmit={submit}>
+        {!edit && (
+          <label className="wideField photoFirstCard">
+            <span>Primero toma la foto del producto</span>
+            <input id="product-photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(event) => setPhoto(event.target.files?.[0] ?? null)} />
+            <small>{photo ? `Foto lista: ${photo.name}` : "En celular se abrira la camara o galeria. Luego completa los datos."}</small>
+          </label>
+        )}
         <Field label="Marca *" value={form.brandName} onChange={(brandName) => setForm({ ...form, brandName })} list="brands" required />
         <datalist id="brands">{(catalogs?.brands ?? []).map((item) => <option key={item.id} value={item.name} />)}</datalist>
         <Field label="Modelo" value={form.model} onChange={(model) => setForm({ ...form, model })} />

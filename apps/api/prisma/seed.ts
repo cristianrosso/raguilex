@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
-import { PrismaClient, RoleCode } from "@prisma/client";
+import { InventoryStatus, MovementType, PrismaClient, RoleCode } from "@prisma/client";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -17,6 +17,40 @@ type SeedUser = {
   roleCode: RoleCode;
   placeholder?: string;
 };
+
+type DemoProduct = {
+  internalCode: string;
+  brandName: string;
+  model: string;
+  size: string;
+  color: string;
+  conditionName: string;
+  purchaseCost: number;
+  salePrice: number;
+  status?: InventoryStatus;
+  barcode?: string;
+  observations?: string;
+};
+
+const demoProducts: DemoProduct[] = [
+  { internalCode: "TN-00001", brandName: "Nike", model: "Air Max 90", size: "40", color: "Blanco/Rojo", conditionName: "Excelente", purchaseCost: 210, salePrice: 360, barcode: "RGX-DEMO-001" },
+  { internalCode: "TN-00002", brandName: "Adidas", model: "Forum Low", size: "41", color: "Blanco/Azul", conditionName: "Muy bueno", purchaseCost: 190, salePrice: 330, barcode: "RGX-DEMO-002" },
+  { internalCode: "TN-00003", brandName: "Puma", model: "RS-X", size: "39", color: "Negro/Verde", conditionName: "Bueno", purchaseCost: 150, salePrice: 270, barcode: "RGX-DEMO-003" },
+  { internalCode: "TN-00004", brandName: "Reebok", model: "Classic Leather", size: "38", color: "Blanco", conditionName: "Excelente", purchaseCost: 180, salePrice: 310, barcode: "RGX-DEMO-004" },
+  { internalCode: "TN-00005", brandName: "New Balance", model: "574", size: "42", color: "Gris", conditionName: "Premium", purchaseCost: 240, salePrice: 420, barcode: "RGX-DEMO-005" },
+  { internalCode: "TN-00006", brandName: "Nike", model: "Dunk Low", size: "37", color: "Negro/Blanco", conditionName: "Muy bueno", purchaseCost: 220, salePrice: 390, barcode: "RGX-DEMO-006" },
+  { internalCode: "TN-00007", brandName: "Vans", model: "Old Skool", size: "40", color: "Negro", conditionName: "Bueno", purchaseCost: 120, salePrice: 230, barcode: "RGX-DEMO-007" },
+  { internalCode: "TN-00008", brandName: "Converse", model: "Chuck Taylor", size: "39", color: "Rojo", conditionName: "Regular", purchaseCost: 95, salePrice: 180, barcode: "RGX-DEMO-008" },
+  { internalCode: "TN-00009", brandName: "Jordan", model: "Air Jordan 1 Mid", size: "43", color: "Negro/Rojo", conditionName: "Premium", purchaseCost: 360, salePrice: 620, barcode: "RGX-DEMO-009" },
+  { internalCode: "TN-00010", brandName: "Adidas", model: "Ultraboost", size: "42", color: "Azul", conditionName: "Excelente", purchaseCost: 260, salePrice: 450, barcode: "RGX-DEMO-010" },
+  { internalCode: "TN-00011", brandName: "Asics", model: "Gel Lyte III", size: "41", color: "Crema", conditionName: "Muy bueno", purchaseCost: 170, salePrice: 310, barcode: "RGX-DEMO-011" },
+  { internalCode: "TN-00012", brandName: "Fila", model: "Disruptor II", size: "38", color: "Blanco", conditionName: "Bueno", purchaseCost: 130, salePrice: 240, barcode: "RGX-DEMO-012" },
+  { internalCode: "TN-00013", brandName: "Nike", model: "Pegasus", size: "44", color: "Negro", conditionName: "Excelente", purchaseCost: 200, salePrice: 350, barcode: "RGX-DEMO-013" },
+  { internalCode: "TN-00014", brandName: "Under Armour", model: "HOVR Sonic", size: "40", color: "Gris/Azul", conditionName: "Muy bueno", purchaseCost: 160, salePrice: 295, barcode: "RGX-DEMO-014" },
+  { internalCode: "TN-00015", brandName: "Adidas", model: "Samba OG", size: "39", color: "Negro/Blanco", conditionName: "Premium", purchaseCost: 230, salePrice: 410, status: InventoryStatus.RESERVED, barcode: "RGX-DEMO-015" },
+  { internalCode: "TN-00016", brandName: "Puma", model: "Suede Classic", size: "41", color: "Azul Marino", conditionName: "Bueno", purchaseCost: 125, salePrice: 235, status: InventoryStatus.RESERVED, barcode: "RGX-DEMO-016" },
+  { internalCode: "TN-00017", brandName: "Nike", model: "Blazer Mid", size: "42", color: "Blanco/Negro", conditionName: "Regular", purchaseCost: 140, salePrice: 260, status: InventoryStatus.MAINTENANCE, barcode: "RGX-DEMO-017", observations: "Producto demo en revision de limpieza." }
+];
 
 async function upsertSeedUser(user: SeedUser) {
   if (!user.password || user.password === user.placeholder) {
@@ -47,6 +81,105 @@ async function upsertSeedUser(user: SeedUser) {
       active: true
     }
   });
+}
+
+async function seedDemoProducts() {
+  const [category, location, seedOwner] = await Promise.all([
+    prisma.category.upsert({
+      where: { name: "Tenis/Calzado" },
+      update: {},
+      create: { name: "Tenis/Calzado" }
+    }),
+    prisma.location.upsert({
+      where: { name: "Raguilex Principal" },
+      update: {},
+      create: { name: "Raguilex Principal" }
+    }),
+    prisma.user.findFirst({ where: { username: process.env.ADMIN_USERNAME ?? "admin" } })
+  ]);
+
+  for (const item of demoProducts) {
+    const [brand, condition] = await Promise.all([
+      prisma.brand.upsert({
+        where: { name: item.brandName },
+        update: {},
+        create: { name: item.brandName }
+      }),
+      prisma.productCondition.upsert({
+        where: { name: item.conditionName },
+        update: {},
+        create: { name: item.conditionName }
+      })
+    ]);
+
+    const existing = await prisma.product.findUnique({ where: { internalCode: item.internalCode } });
+    const status = item.status ?? InventoryStatus.AVAILABLE;
+
+    if (existing) {
+      await prisma.product.update({
+        where: { id: existing.id },
+        data: {
+          categoryId: category.id,
+          brandId: brand.id,
+          model: item.model,
+          size: item.size,
+          color: item.color,
+          conditionId: condition.id,
+          purchaseCost: item.purchaseCost,
+          salePrice: item.salePrice,
+          status,
+          barcode: item.barcode,
+          observations: item.observations,
+          locationId: location.id,
+          active: true,
+          updatedById: seedOwner?.id
+        }
+      });
+      continue;
+    }
+
+    const product = await prisma.product.create({
+      data: {
+        internalCode: item.internalCode,
+        categoryId: category.id,
+        brandId: brand.id,
+        model: item.model,
+        size: item.size,
+        color: item.color,
+        conditionId: condition.id,
+        purchaseCost: item.purchaseCost,
+        salePrice: item.salePrice,
+        status,
+        barcode: item.barcode,
+        observations: item.observations,
+        locationId: location.id,
+        createdById: seedOwner?.id,
+        updatedById: seedOwner?.id
+      }
+    });
+
+    await prisma.inventoryMovement.create({
+      data: {
+        productId: product.id,
+        movementType: MovementType.ENTRY,
+        newStatus: product.status,
+        userId: seedOwner?.id,
+        referenceType: "DEMO_SEED",
+        referenceId: product.id,
+        observations: "Producto de prueba cargado por seed"
+      }
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        userId: seedOwner?.id,
+        action: "DEMO_PRODUCT_SEED",
+        entity: "PRODUCT",
+        entityId: product.id,
+        afterValues: { internalCode: product.internalCode, status: product.status }
+      }
+    });
+  }
 }
 
 async function main() {
@@ -130,6 +263,8 @@ async function main() {
   for (const user of seedUsers) {
     await upsertSeedUser(user);
   }
+
+  await seedDemoProducts();
 }
 
 main()
