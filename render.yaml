@@ -1,0 +1,45 @@
+services:
+  - type: web
+    name: inventario-api
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build:api:render
+    startCommand: npm run start:api:render
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: WEB_ORIGIN
+        value: https://raguilex.vercel.app
+      - key: WEB_ORIGINS
+        value: https://raguilex.vercel.app,https://raguilex-nhxci5bdi-djcris.vercel.app
+      - key: SUPER_ADMIN_NAME
+        value: RAGUILEX Super Admin
+      - key: SUPER_ADMIN_USERNAME
+        value: superadmin
+      - key: SUPER_ADMIN_EMAIL
+        value: admin@raguilex.local
+      - key: SUPER_ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_NAME
+        value: RAGUILEX Administrador
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_EMAIL
+        value: admin.operaciones@raguilex.local
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: SELLER_NAME
+        value: RAGUILEX Vendedor
+      - key: SELLER_USERNAME
+        value: vendedor
+      - key: SELLER_EMAIL
+        value: ventas@raguilex.local
+      - key: SELLER_PASSWORD
+        sync: false
+      - key: UPLOAD_DIR
+        value: uploads

@@ -10,6 +10,7 @@ dotenv.config({ path: resolve(currentDir, "../../../.env") });
 const envSchema = z.object({
   NODE_ENV: z.string().default("development"),
   DATABASE_URL: z.string().min(1),
+  PORT: z.coerce.number().int().positive().optional(),
   API_PORT: z.coerce.number().int().positive().default(4001),
   WEB_ORIGIN: z.string().url().default("http://localhost:3002"),
   WEB_ORIGINS: z.string().optional(),
@@ -18,6 +19,7 @@ const envSchema = z.object({
 });
 
 export const config = envSchema.parse(process.env);
+export const apiPort = config.PORT ?? config.API_PORT;
 
 export const webOrigins = [
   config.WEB_ORIGIN,

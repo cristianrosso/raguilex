@@ -19,6 +19,7 @@ Sistema web responsive para inventario unitario de tenis/calzado de segunda mano
 - Control de caja, reservas, devoluciones y anulaciones: Fase 4
 - Documentacion operativa: `docs/manual_operativo.md`
 - Backup y restauracion: `docs/backup_restore.md`
+- Despliegue Render + Vercel: `docs/deploy_render_vercel.md`
 
 ## Requisitos
 
@@ -100,6 +101,8 @@ Variables necesarias en Vercel:
 - `VITE_API_URL`: URL publica del backend API, por ejemplo `https://api.tudominio.com`.
 
 El backend Fastify/Prisma y PostgreSQL deben desplegarse aparte o migrarse a un runtime compatible antes de usar el sistema completo en produccion.
+
+Para desplegar la API en Render y conectar PostgreSQL, revisa `docs/deploy_render_vercel.md`.
 
 ## Resultado de importacion del Excel inicial
 

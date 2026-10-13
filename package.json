@@ -11,6 +11,8 @@
     "dev:api": "npm --workspace @raguilex/api run dev",
     "dev:web": "npm --workspace @raguilex/web run dev",
     "build": "npm --workspace @raguilex/shared run build && npm --workspace @raguilex/api run build && npm --workspace @raguilex/web run build",
+    "build:api:render": "npm --workspace @raguilex/api run prisma:generate && npm --workspace @raguilex/shared run build && npm --workspace @raguilex/api run build",
+    "start:api:render": "npm --workspace @raguilex/api run prisma:deploy && npm run seed && npm --workspace @raguilex/api run start",
     "test": "npm --workspace @raguilex/api run test",
     "prisma:generate": "npm --workspace @raguilex/api run prisma:generate",
     "prisma:migrate": "npm --workspace @raguilex/api run prisma:migrate",

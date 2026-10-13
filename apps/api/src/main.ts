@@ -3,7 +3,7 @@ import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import rateLimit from "@fastify/rate-limit";
 import { RoleCode } from "@prisma/client";
-import { config, webOrigins } from "./config.js";
+import { apiPort, config, webOrigins } from "./config.js";
 import { prisma } from "./db/prisma.js";
 import { authPlugin } from "./plugins/auth.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
@@ -71,4 +71,4 @@ const shutdown = async () => {
 process.on("SIGINT", shutdown);
 process.on("SIGTERM", shutdown);
 
-await app.listen({ port: config.API_PORT, host: "0.0.0.0" });
+await app.listen({ port: apiPort, host: "0.0.0.0" });
