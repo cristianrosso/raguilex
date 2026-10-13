@@ -716,6 +716,27 @@ p {
   box-shadow: var(--shadow-soft);
 }
 
+.scanVideo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+}
+
+.scanVideo.active {
+  opacity: 0.72;
+}
+
+.scanFrame > strong,
+.scanFrame > span,
+.scanActions,
+.scanCorners {
+  position: relative;
+  z-index: 1;
+}
+
 .scanCorners {
   position: relative;
   display: grid;

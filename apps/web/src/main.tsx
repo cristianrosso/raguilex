@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Navigate, NavLink, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import {
@@ -959,10 +959,99 @@ function ScannerPage({ token, user }: { token: string; user: UserSession }) {
   const [manual, setManual] = useState("");
   const [product, setProduct] = useState<Product | null>(null);
   const [error, setError] = useState("");
+  const [cameraMessage, setCameraMessage] = useState("Toca Activar camara para escanear QR con el celular.");
+  const [cameraActive, setCameraActive] = useState(false);
+  const [torchOn, setTorchOn] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const scanFrameRef = useRef<number | null>(null);
+  const resolvedRef = useRef(false);
 
   useEffect(() => {
     if (params.token) resolve(params.token);
   }, [params.token]);
+
+  useEffect(() => () => stopCamera(), []);
+
+  const stopCamera = () => {
+    if (scanFrameRef.current) cancelAnimationFrame(scanFrameRef.current);
+    scanFrameRef.current = null;
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    setCameraActive(false);
+    setTorchOn(false);
+  };
+
+  const startCamera = async () => {
+    setError("");
+    setCameraMessage("Solicitando permiso de camara...");
+    resolvedRef.current = false;
+    try {
+      const barcodeDetector = createBarcodeDetector();
+      if (!barcodeDetector) {
+        setCameraMessage("Este navegador no soporta lectura automatica de QR. Usa Ingreso manual.");
+        return;
+      }
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setCameraMessage("La camara no esta disponible. En red local puede requerir HTTPS o usar localhost.");
+        return;
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+      setCameraActive(true);
+      setCameraMessage("Camara activa. Enfoca el QR del producto.");
+      scanWithCamera(barcodeDetector);
+    } catch (err) {
+      setCameraActive(false);
+      const blockedByHttp = window.location.protocol !== "https:" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1";
+      setCameraMessage(blockedByHttp ? "Chrome bloqueo la camara por usar HTTP en red local. Para escanear desde celular necesitamos HTTPS o usar ingreso manual." : "No se pudo abrir la camara. Revisa permisos del navegador o usa ingreso manual.");
+    }
+  };
+
+  const scanWithCamera = (barcodeDetector: { detect: (source: HTMLVideoElement) => Promise<{ rawValue: string }[]> }) => {
+    const tick = async () => {
+      const video = videoRef.current;
+      if (!video || resolvedRef.current) return;
+      if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+        try {
+          const codes = await barcodeDetector.detect(video);
+          const value = codes[0]?.rawValue;
+          if (value) {
+            resolvedRef.current = true;
+            setManual(extractScanValue(value));
+            stopCamera();
+            await resolve(extractScanValue(value));
+            return;
+          }
+        } catch {
+          setCameraMessage("No se pudo leer el QR automaticamente. Intenta acercar el codigo o usa ingreso manual.");
+        }
+      }
+      scanFrameRef.current = requestAnimationFrame(tick);
+    };
+    scanFrameRef.current = requestAnimationFrame(tick);
+  };
+
+  const toggleTorch = async () => {
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!track) {
+      setCameraMessage("Primero activa la camara.");
+      return;
+    }
+    try {
+      await track.applyConstraints({ advanced: [{ torch: !torchOn } as MediaTrackConstraintSet] });
+      setTorchOn((current) => !current);
+    } catch {
+      setCameraMessage("La linterna no esta disponible en este celular o navegador.");
+    }
+  };
 
   const resolve = async (value: string) => {
     setError("");
@@ -980,9 +1069,19 @@ function ScannerPage({ token, user }: { token: string; user: UserSession }) {
     <>
       <PageHeader title="Escanear producto" eyebrow="QR o codigo manual" />
       <section className="scannerPanel">
-        <div className="scanFrame"><div className="scanCorners"><ScanLine size={56} /><i /></div><strong>Enfoca el codigo QR o de barras del tenis.</strong><span>Si la camara no esta disponible, ingresa el codigo manualmente.</span><div className="scanActions"><button type="button">Linterna</button><button type="button">Ingreso manual</button></div></div>
+        <div className="scanFrame">
+          <video ref={videoRef} className={cameraActive ? "scanVideo active" : "scanVideo"} playsInline muted />
+          <div className="scanCorners"><ScanLine size={56} /><i /></div>
+          <strong>Enfoca el codigo QR del tenis.</strong>
+          <span>{cameraMessage}</span>
+          <div className="scanActions">
+            <button type="button" onClick={cameraActive ? stopCamera : startCamera}>{cameraActive ? "Cerrar camara" : "Activar camara"}</button>
+            <button type="button" onClick={toggleTorch}>{torchOn ? "Apagar linterna" : "Linterna"}</button>
+            <button type="button" onClick={() => document.getElementById("manual-scan-input")?.focus()}>Ingreso manual</button>
+          </div>
+        </div>
         <form className="manualScan" onSubmit={(event) => { event.preventDefault(); resolve(manual); }}>
-          <input placeholder="TN-00025 o token QR" value={manual} onChange={(event) => setManual(event.target.value)} />
+          <input id="manual-scan-input" placeholder="TN-00025 o token QR" value={manual} onChange={(event) => setManual(event.target.value)} />
           <button type="submit">Buscar</button>
         </form>
       </section>
@@ -990,6 +1089,18 @@ function ScannerPage({ token, user }: { token: string; user: UserSession }) {
       {product && <ScannedProduct product={product} user={user} />}
     </>
   );
+}
+
+function createBarcodeDetector(): { detect: (source: HTMLVideoElement) => Promise<{ rawValue: string }[]> } | null {
+  const Detector = (window as unknown as { BarcodeDetector?: new (options: { formats: string[] }) => { detect: (source: HTMLVideoElement) => Promise<{ rawValue: string }[]> } }).BarcodeDetector;
+  return Detector ? new Detector({ formats: ["qr_code", "code_128", "ean_13", "ean_8", "upc_a", "upc_e"] }) : null;
+}
+
+function extractScanValue(value: string) {
+  const trimmed = value.trim();
+  const scanMarker = "/scan/";
+  if (trimmed.includes(scanMarker)) return trimmed.split(scanMarker).pop() ?? trimmed;
+  return trimmed;
 }
 
 function ScannedProduct({ product, user }: { product: Product; user: UserSession }) {
