@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Navigate, NavLink, Route, Routes, useNavigate, useParams } from "react-router-dom";
+import { BrowserRouter, Navigate, NavLink, Route, Routes, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   BarChart3,
   Bell,
@@ -511,7 +511,7 @@ function ProductDetail({ token, user }: { token: string; user: UserSession }) {
               ]} />
               {admin && <section className="adminBox"><h2>Informacion administrativa</h2><InfoGrid rows={[["Costo", money(product.purchaseCost)], ["Venta", money(product.salePrice)], ["Margen", money(margin)], ["Margen %", marginPercent(product.purchaseCost, product.salePrice)], ["Registrado por", product.createdBy?.username], ["Fecha ingreso", product.createdAt ? dateLabel(product.createdAt) : "-"]]} /></section>}
               <section className="actionGrid">
-                {admin ? <NavLink className="buttonLike" to={`/products/${product.id}/edit`}><Pencil size={18} />Editar</NavLink> : <NavLink className="buttonLike" to="/sales/new"><ShoppingCart size={18} />Vender</NavLink>}
+                {admin ? <NavLink className="buttonLike" to={`/products/${product.id}/edit`}><Pencil size={18} />Editar</NavLink> : <NavLink className="buttonLike" to={`/sales/new?productId=${product.id}`}><ShoppingCart size={18} />Vender</NavLink>}
                 {admin && <button type="button" onClick={generateQr}><ScanLine size={18} />Generar QR</button>}
                 <NavLink className="buttonLike secondary" to="/scanner"><ScanLine size={18} />Escanear otro</NavLink>
               </section>
@@ -1132,7 +1132,7 @@ function ScannedProduct({ product, user }: { product: Product; user: UserSession
         <p className="priceLine">{money(product.salePrice)}</p>
         <StatusPill status={product.status} />
       </div>
-      {sold ? <p className="errorText">Producto vendido. No se puede volver a vender.</p> : reserved ? <p className="errorText">Producto reservado. Resuelve la reserva antes de vender.</p> : <NavLink className="buttonLike sellButton" to="/sales/new"><ShoppingCart size={18} />Vender</NavLink>}
+      {sold ? <p className="errorText">Producto vendido. No se puede volver a vender.</p> : reserved ? <p className="errorText">Producto reservado. Resuelve la reserva antes de vender.</p> : <NavLink className="buttonLike sellButton" to={`/sales/new?productId=${product.id}`}><ShoppingCart size={18} />Vender</NavLink>}
     </section>
   );
 }
@@ -1158,6 +1158,7 @@ function SalesPage({ token, user }: { token: string; user: UserSession }) {
 
 function NewSale({ token, user }: { token: string; user: UserSession }) {
   const { data: products, reload } = useApi<Product[]>("/products?status=AVAILABLE&take=100", token);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [productId, setProductId] = useState("");
   const [cart, setCart] = useState<Product[]>([]);
   const [paymentMethod, setPaymentMethod] = useState("EFECTIVO");
@@ -1169,6 +1170,21 @@ function NewSale({ token, user }: { token: string; user: UserSession }) {
   const availableProducts = (products ?? []).filter((product) => !cart.some((item) => item.id === product.id));
   const subtotal = cart.reduce((total, product) => total + Number(product.salePrice ?? 0), 0);
   const total = subtotal - Number(discount || 0);
+  const scannedProductId = searchParams.get("productId");
+
+  useEffect(() => {
+    if (!scannedProductId || !products) return;
+    const product = products.find((item) => item.id === scannedProductId);
+    if (!product) {
+      setError("El producto escaneado ya no esta disponible para vender.");
+      setSearchParams({}, { replace: true });
+      return;
+    }
+    setCart((current) => current.some((item) => item.id === product.id) ? current : [...current, product]);
+    setMessage(`${product.internalCode} agregado al carrito. Puedes escanear otro producto.`);
+    setError("");
+    setSearchParams({}, { replace: true });
+  }, [scannedProductId, products, setSearchParams]);
 
   const addProduct = () => {
     const product = products?.find((item) => item.id === productId);
@@ -1208,7 +1224,7 @@ function NewSale({ token, user }: { token: string; user: UserSession }) {
       <PageHeader title="Nueva venta" eyebrow="Escanear, buscar y confirmar" />
       <section className="saleBuilder">
         <div className="salePicker">
-          <NavLink className="buttonLike bigAction" to="/scanner"><ScanLine size={22} />Escanear QR</NavLink>
+          <NavLink className="buttonLike bigAction" to="/scanner"><ScanLine size={22} />Escanear otro QR</NavLink>
           <label><span>Buscar producto</span><select value={productId} onChange={(event) => setProductId(event.target.value)}><option value="">Seleccionar disponible</option>{availableProducts.map((item) => <option key={item.id} value={item.id}>{item.internalCode} - {item.brand?.name ?? ""} {item.model ?? ""} - {money(item.salePrice)}</option>)}</select></label>
           <button type="button" onClick={addProduct} disabled={!productId}>Agregar</button>
         </div>
