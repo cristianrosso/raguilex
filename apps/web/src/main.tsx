@@ -971,6 +971,7 @@ function Profile({ token, user, onSignOut }: { token: string; user: UserSession;
 
 function ScannerPage({ token, user }: { token: string; user: UserSession }) {
   const params = useParams();
+  const navigate = useNavigate();
   const [manual, setManual] = useState("");
   const [product, setProduct] = useState<Product | null>(null);
   const [error, setError] = useState("");
@@ -1042,7 +1043,7 @@ function ScannerPage({ token, user }: { token: string; user: UserSession }) {
             resolvedRef.current = true;
             setManual(extractScanValue(value));
             stopCamera();
-            await resolve(extractScanValue(value));
+            await resolve(extractScanValue(value), true);
             return;
           }
         } catch {
@@ -1068,13 +1069,21 @@ function ScannerPage({ token, user }: { token: string; user: UserSession }) {
     }
   };
 
-  const resolve = async (value: string) => {
+  const resolve = async (value: string, goToSale = false) => {
     setError("");
     setProduct(null);
     try {
       const path = value.includes("/scan/") || /^[0-9a-f-]{36}$/i.test(value) ? `/qr/resolve/${encodeURIComponent(value)}` : `/qr/code/${encodeURIComponent(value)}`;
-      setProduct(await apiRequest<Product>(path, { token }));
+      const found = await apiRequest<Product>(path, { token });
+      setProduct(found);
       if ("vibrate" in navigator) navigator.vibrate?.(60);
+      if (goToSale) {
+        if (found.status === "AVAILABLE") {
+          navigate(`/sales/new?productId=${found.id}`);
+          return;
+        }
+        setError(found.status === "SOLD" ? "Producto vendido. No se puede volver a vender." : "Producto no disponible para venta.");
+      }
     } catch {
       setError("No encontramos este producto.");
     }
@@ -1095,7 +1104,7 @@ function ScannerPage({ token, user }: { token: string; user: UserSession }) {
             <button type="button" onClick={() => document.getElementById("manual-scan-input")?.focus()}>Ingreso manual</button>
           </div>
         </div>
-        <form className="manualScan" onSubmit={(event) => { event.preventDefault(); resolve(manual); }}>
+        <form className="manualScan" onSubmit={(event) => { event.preventDefault(); resolve(manual, true); }}>
           <input id="manual-scan-input" placeholder="TN-00025 o token QR" value={manual} onChange={(event) => setManual(event.target.value)} />
           <button type="submit">Buscar</button>
         </form>
