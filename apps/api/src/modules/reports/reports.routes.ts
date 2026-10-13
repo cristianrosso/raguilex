@@ -46,6 +46,7 @@ export async function reportsRoutes(app: FastifyInstance) {
 
     const byStatus = Object.fromEntries(statusCounts.map((item) => [item.status, item._count._all]));
     const profit = soldItems.reduce((total, item) => total + Number(item.salePrice) - Number(item.discount) - Number(item.purchaseCostSnapshot ?? 0), 0);
+    const payments = summarizePayments(saleRows);
 
     return {
       inventory: {
@@ -63,10 +64,12 @@ export async function reportsRoutes(app: FastifyInstance) {
         count: sales._count._all,
         products: soldItems.length,
         total: sales._sum.total ?? 0,
+        todayTotal: sales._sum.total ?? 0,
         discounts: sales._sum.discount ?? 0,
         grossProfit: profit,
         averageTicket: sales._avg.total ?? 0
       },
+      payments,
       topBrands: topBy(soldItems.map((item) => item.product.brand?.name ?? "Sin marca")),
       topSizes: topBy(soldItems.map((item) => item.product.size ?? "Sin talla")),
       topModels: topBy(soldItems.map((item) => item.product.model ?? "Sin modelo")),
@@ -87,6 +90,22 @@ export async function reportsRoutes(app: FastifyInstance) {
       movements
     };
   });
+}
+
+function summarizePayments(sales: { paymentMethod: string | null; total: unknown }[]) {
+  const base = {
+    EFECTIVO: { label: "Efectivo", total: 0, count: 0 },
+    QR_TRANSFERENCIA: { label: "QR/Transferencia", total: 0, count: 0 },
+    TARJETA: { label: "Tarjeta", total: 0, count: 0 },
+    OTRO: { label: "Otro", total: 0, count: 0 }
+  };
+  for (const sale of sales) {
+    const key = (sale.paymentMethod ?? "OTRO") as keyof typeof base;
+    const bucket = base[key] ?? base.OTRO;
+    bucket.total += Number(sale.total ?? 0);
+    bucket.count += 1;
+  }
+  return base;
 }
 
 function sizeAnalysis(items: { product: { size: string | null } }[], _byStatus: Record<string, number>) {

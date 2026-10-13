@@ -120,6 +120,7 @@ type Sale = {
 type ReportSummary = {
   inventory: Record<string, number | string>;
   sales: Record<string, number | string>;
+  payments?: Record<string, { label: string; total: number | string; count: number }>;
   topBrands: { label: string; count: number }[];
   topSizes: { label: string; count: number }[];
   topModels?: { label: string; count: number }[];
@@ -301,12 +302,7 @@ function Shell({ user, onSignOut, children }: { user: UserSession; onSignOut: ()
         {children}
       </main>
       <nav className="bottomNav">
-        {[
-          { to: "/dashboard", label: "Inicio", icon: Home },
-          { to: "/sales", label: "Ventas", icon: ShoppingCart },
-          { to: "/scanner", label: "Escanear", icon: ScanLine, featured: true },
-          { to: "/profile", label: "Mas", icon: UserCircle }
-        ].map((item) => <NavLink key={item.to} className={item.featured ? "featuredNav" : ""} to={item.to}><item.icon size={21} /><span>{item.label}</span></NavLink>)}
+        {allowedNav.map((item) => <NavLink key={item.to} className={item.to === "/scanner" ? "featuredNav" : ""} to={item.to}><item.icon size={21} /><span>{item.label}</span></NavLink>)}
       </nav>
     </div>
   );
@@ -842,7 +838,7 @@ function CashPage({ token }: { token: string }) {
                 <h2>Ingreso / egreso</h2>
                 <SelectInput label="Tipo" value={movement.type} options={["INCOME", "EXPENSE"]} labels={{ INCOME: "Ingreso", EXPENSE: "Egreso" }} onChange={(type) => setMovement({ ...movement, type })} />
                 <Field label="Monto" value={movement.amount} onChange={(amount) => setMovement({ ...movement, amount })} type="number" required />
-                <SelectInput label="Metodo" value={movement.method} options={["EFECTIVO", "QR_TRANSFERENCIA", "OTRO"]} labels={{ EFECTIVO: "Efectivo", QR_TRANSFERENCIA: "QR/Transferencia", OTRO: "Otro" }} onChange={(method) => setMovement({ ...movement, method })} />
+                <SelectInput label="Metodo" value={movement.method} options={["EFECTIVO", "QR_TRANSFERENCIA", "TARJETA", "OTRO"]} labels={{ EFECTIVO: "Efectivo", QR_TRANSFERENCIA: "QR/Transferencia", TARJETA: "Tarjeta", OTRO: "Otro" }} onChange={(method) => setMovement({ ...movement, method })} />
                 <Field label="Concepto" value={movement.concept} onChange={(concept) => setMovement({ ...movement, concept })} required />
                 <Field label="Motivo" value={movement.reason} onChange={(reason) => setMovement({ ...movement, reason })} required />
                 <button type="submit">Registrar movimiento</button>
@@ -1170,7 +1166,6 @@ function NewSale({ token, user }: { token: string; user: UserSession }) {
   const [error, setError] = useState("");
   const [sale, setSale] = useState<Sale | null>(null);
   const [saving, setSaving] = useState(false);
-  const admin = canAccess(user.role, adminRoles);
   const availableProducts = (products ?? []).filter((product) => !cart.some((item) => item.id === product.id));
   const subtotal = cart.reduce((total, product) => total + Number(product.salePrice ?? 0), 0);
   const total = subtotal - Number(discount || 0);
@@ -1192,7 +1187,7 @@ function NewSale({ token, user }: { token: string; user: UserSession }) {
         token,
         method: "POST",
         body: JSON.stringify({
-          items: cart.map((product, index) => ({ productId: product.id, discount: admin && index === 0 ? Number(discount || 0) : 0 })),
+          items: cart.map((product, index) => ({ productId: product.id, discount: index === 0 ? Number(discount || 0) : 0 })),
           paymentMethod,
           idempotencyKey: crypto.randomUUID()
         })
@@ -1220,9 +1215,8 @@ function NewSale({ token, user }: { token: string; user: UserSession }) {
         <form className="cartPanel" onSubmit={confirm}>
           <h2>Venta</h2>
           {cart.length === 0 ? <p>No hay productos en el carrito.</p> : cart.map((product) => <div className="row" key={product.id}><span>{product.internalCode} · {product.brand?.name ?? ""} {product.model ?? ""}</span><strong>{money(product.salePrice)}</strong><button className="smallButton" type="button" onClick={() => setCart(cart.filter((item) => item.id !== product.id))}>Quitar</button></div>)}
-          {admin && <Field label="Descuento total" value={discount} onChange={setDiscount} type="number" />}
-          {!admin && Number(discount) > 0 && <p className="errorText">Este descuento requiere autorizacion de un administrador.</p>}
-          <SelectInput label="Metodo de pago" value={paymentMethod} options={["EFECTIVO", "QR_TRANSFERENCIA", "OTRO"]} labels={{ EFECTIVO: "Efectivo", QR_TRANSFERENCIA: "QR/Transferencia", OTRO: "Otro" }} onChange={setPaymentMethod} />
+          <Field label="Descuento total" value={discount} onChange={setDiscount} type="number" />
+          <SelectInput label="Metodo de pago" value={paymentMethod} options={["EFECTIVO", "QR_TRANSFERENCIA", "TARJETA", "OTRO"]} labels={{ EFECTIVO: "Efectivo", QR_TRANSFERENCIA: "QR/Transferencia", TARJETA: "Tarjeta", OTRO: "Otro" }} onChange={setPaymentMethod} />
           <Metric label="Total" value={money(total)} />
           {error && <p className="errorText">{error}</p>}
           {message && <p className="successText">{message}</p>}
@@ -1253,6 +1247,10 @@ function ReportsPage({ token }: { token: string }) {
             <section className="metricGrid">
               <Metric label="Ventas" value={String(data.sales.count ?? 0)} />
               <Metric label="Productos vendidos" value={String(data.sales.products ?? 0)} />
+              <Metric label="Monto total del dia" value={money(data.sales.todayTotal ?? data.sales.total)} />
+              <Metric label="Efectivo" value={money(data.payments?.EFECTIVO?.total ?? 0)} />
+              <Metric label="QR" value={money(data.payments?.QR_TRANSFERENCIA?.total ?? 0)} />
+              <Metric label="Tarjeta" value={money(data.payments?.TARJETA?.total ?? 0)} />
               <Metric label="Ventas totales" value={money(data.sales.total)} />
               <Metric label="Utilidad bruta" value={money(data.sales.grossProfit)} />
               <Metric label="Reservas activas" value={String(data.activeReservations ?? 0)} />
@@ -1448,7 +1446,7 @@ function dateLabel(value: string) {
 }
 
 function paymentLabel(value?: string | null) {
-  return ({ EFECTIVO: "Efectivo", QR_TRANSFERENCIA: "QR/Transferencia", OTRO: "Otro" } as Record<string, string>)[value ?? ""] ?? "-";
+  return ({ EFECTIVO: "Efectivo", QR_TRANSFERENCIA: "QR/Transferencia", TARJETA: "Tarjeta", OTRO: "Otro" } as Record<string, string>)[value ?? ""] ?? "-";
 }
 
 function marginPercent(cost?: number | string | null, sale?: number | string | null) {

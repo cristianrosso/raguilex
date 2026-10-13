@@ -11,7 +11,7 @@ const openSchema = z.object({
 const movementSchema = z.object({
   type: z.nativeEnum(CashMovementType),
   amount: z.coerce.number().positive(),
-  method: z.enum(["EFECTIVO", "QR_TRANSFERENCIA", "OTRO"]).default("EFECTIVO"),
+  method: z.enum(["EFECTIVO", "QR_TRANSFERENCIA", "TARJETA", "OTRO"]).default("EFECTIVO"),
   concept: z.string().min(2),
   reason: z.string().min(3)
 });
@@ -144,7 +144,7 @@ async function cashSummary(from: Date, to: Date, sessionId: string) {
   ]);
   const cashSales = sumByPayment(sales, "EFECTIVO");
   const digitalSales = sumByPayment(sales, "QR_TRANSFERENCIA");
-  const otherSales = sumByPayment(sales, "OTRO");
+  const otherSales = sumByPayment(sales, "TARJETA") + sumByPayment(sales, "OTRO");
   const incomeCash = movements.filter((item) => item.type === CashMovementType.INCOME && item.method === "EFECTIVO").reduce((total, item) => total + Number(item.amount), 0);
   const expenseCash = movements.filter((item) => item.type === CashMovementType.EXPENSE && item.method === "EFECTIVO").reduce((total, item) => total + Number(item.amount), 0);
   const session = await prisma.cashSession.findUniqueOrThrow({ where: { id: sessionId }, select: { openingAmount: true } });

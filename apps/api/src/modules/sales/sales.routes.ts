@@ -14,7 +14,7 @@ const saleSchema = z.object({
   items: z.array(saleItemSchema).min(1).max(20).optional(),
   salePrice: z.coerce.number().positive().optional(),
   discount: z.coerce.number().min(0).default(0),
-  paymentMethod: z.enum(["EFECTIVO", "QR_TRANSFERENCIA", "OTRO"]).default("EFECTIVO"),
+  paymentMethod: z.enum(["EFECTIVO", "QR_TRANSFERENCIA", "TARJETA", "OTRO"]).default("EFECTIVO"),
   observations: z.string().optional(),
   idempotencyKey: z.string().min(8).max(120).optional(),
   reservationId: z.string().uuid().optional()
@@ -84,10 +84,6 @@ export async function salesRoutes(app: FastifyInstance) {
       if (existing) return request.user.role === RoleCode.SELLER ? stripSellerFinancials(existing) : existing;
     }
 
-    if (request.user.role === RoleCode.SELLER && normalizedItems.some((item) => item.discount > 0)) {
-      return reply.status(403).send({ message: "Este descuento requiere autorizacion de un administrador." });
-    }
-
     try {
       return await prisma.$transaction(async (tx) => {
         const ids = [...new Set(normalizedItems.map((item) => item.productId))];
@@ -126,15 +122,23 @@ export async function salesRoutes(app: FastifyInstance) {
         const itemRows = normalizedItems.map((item) => {
           const product = byId.get(item.productId)!;
           const originalPrice = Number(product.salePrice ?? body.salePrice ?? 0);
+          const discount = Number(item.discount ?? 0);
           return {
             product,
             originalPrice,
-            discount: Number(item.discount ?? 0),
-            finalPrice: originalPrice - Number(item.discount ?? 0)
+            discount,
+            finalPrice: originalPrice - discount
           };
         });
+        const negativeItem = itemRows.find((item) => item.finalPrice < 0);
+        if (negativeItem) {
+          return reply.status(400).send({ message: `El descuento de ${negativeItem.product.internalCode} no puede superar su precio.` });
+        }
         const subtotal = itemRows.reduce((total, item) => total + item.originalPrice, 0);
         const discount = itemRows.reduce((total, item) => total + item.discount, 0);
+        if (discount > subtotal) {
+          return reply.status(400).send({ message: "El descuento total no puede superar el subtotal." });
+        }
         const sale = await tx.sale.create({
           data: {
             saleNumber: `V-${Date.now()}`,

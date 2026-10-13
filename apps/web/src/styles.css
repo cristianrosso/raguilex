@@ -1189,8 +1189,12 @@ td {
     right: 10px;
     bottom: max(10px, env(safe-area-inset-bottom));
     z-index: 20;
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    overflow-y: visible;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
     border: 1px solid var(--line);
     border-radius: 24px;
     background: rgba(255, 255, 255, 0.96);
@@ -1199,7 +1203,12 @@ td {
     backdrop-filter: blur(16px);
   }
 
+  .bottomNav::-webkit-scrollbar {
+    display: none;
+  }
+
   .bottomNav a {
+    flex: 0 0 76px;
     justify-content: center;
     flex-direction: column;
     gap: 3px;
@@ -1219,7 +1228,7 @@ td {
     color: white;
     background: var(--blue);
     border-radius: 18px;
-    transform: translateY(-10px);
+    transform: translateY(-6px);
     box-shadow: 0 16px 30px rgba(18, 104, 243, 0.30);
   }
 
