@@ -7,6 +7,7 @@
     "moduleResolution": "NodeNext",
     "types": ["node"]
   },
-  "include": ["src", "prisma", "tests"]
+  "include": ["src", "prisma"],
+  "exclude": ["tests", "dist"]
 }
 
